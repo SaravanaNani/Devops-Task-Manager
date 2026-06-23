@@ -3,8 +3,9 @@ pipeline {
     agent any
 
     environment {
-        APP_NAME   = "task-manager-app"
+        APP_NAME = "task-manager-app"
         IMAGE_NAME = "task-manager-app"
+        HEALTH_STATUS = "0"
     }
 
     stages {
@@ -65,7 +66,7 @@ pipeline {
             steps {
                 script {
 
-                    def healthStatus = sh(
+                    def status = sh(
                         script: '''
                         sleep 20
 
@@ -82,9 +83,9 @@ pipeline {
                         returnStatus: true
                     )
 
-                    env.HEALTH_STATUS = healthStatus.toString()
+                    env.HEALTH_STATUS = status.toString()
 
-                    if (healthStatus != 0) {
+                    if (status != 0) {
                         currentBuild.result = 'UNSTABLE'
                     }
                 }
@@ -101,6 +102,13 @@ pipeline {
             steps {
                 script {
 
+                    echo "Health verification failed."
+
+                    sh '''
+                    docker stop ${APP_NAME} || true
+                    docker rm ${APP_NAME} || true
+                    '''
+
                     def stableExists = sh(
                         script: '''
                         docker image inspect ${IMAGE_NAME}:stable >/dev/null 2>&1
@@ -113,9 +121,6 @@ pipeline {
                         echo "Stable image found. Rolling back..."
 
                         sh '''
-                        docker stop ${APP_NAME} || true
-                        docker rm ${APP_NAME} || true
-
                         docker run -d \
                           --name ${APP_NAME} \
                           --env-file /opt/task-manager/.env \
@@ -125,11 +130,12 @@ pipeline {
 
                     } else {
 
-                        echo "No stable image available."
-                        echo "First deployment failure detected."
+                        echo "No stable image found."
+                        echo "This appears to be the first deployment."
                         echo "Candidate image retained for troubleshooting."
                     }
 
+                    currentBuild.result = 'FAILURE'
                     error("Deployment failed health verification.")
                 }
             }
@@ -153,13 +159,10 @@ pipeline {
         }
 
         stage('Cleanup Old Images') {
-            when {
-                expression {
-                    return env.HEALTH_STATUS == "0"
-                }
-            }
-
             steps {
+
+                echo 'Keeping only latest 2 build images plus stable tag.'
+
                 sh '''
                 docker images ${IMAGE_NAME} --format "{{.Tag}}" | \
                 grep -E '^[0-9]+$' | \
@@ -187,7 +190,7 @@ pipeline {
         }
 
         unstable {
-            echo 'Health Check Failed - Rollback Triggered'
+            echo 'Health Check Failed'
         }
 
         failure {
