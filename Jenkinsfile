@@ -71,26 +71,31 @@ pipeline {
 
         stage('Verify Application Health') {
             steps {
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+
+                    sh '''
+                    sleep 20
+
+                    for i in 1 2 3
+                    do
+                        curl -f --max-time 5 http://localhost:5000/health && exit 0
+
+                        echo "Health check failed. Retrying..."
+                        sleep 10
+                    done
+
+                    exit 1
+                    '''
+                }
+            }
+        }
+
+        stage('Rollback To Stable Release') {
+            steps {
+
                 script {
 
-                    def healthStatus = sh(
-                        script: '''
-                        sleep 20
-
-                        for i in 1 2 3
-                        do
-                            curl -f --max-time 5 http://localhost:5000/health && exit 0
-
-                            echo "Health check failed. Retrying..."
-                            sleep 10
-                        done
-
-                        exit 1
-                        ''',
-                        returnStatus: true
-                    )
-
-                    if (healthStatus != 0) {
+                    if (currentBuild.currentResult == 'UNSTABLE') {
 
                         echo "Health verification failed."
 
@@ -125,18 +130,23 @@ pipeline {
                             echo "No stable image found."
                             echo "This appears to be the first deployment."
                             echo "Candidate image retained for troubleshooting."
-
                         }
+                    } else {
 
-                        error("Health verification failed.")
+                        echo "Health verification passed. Rollback not required."
                     }
-
-                    echo "Health verification passed."
                 }
             }
         }
 
         stage('Promote Release To Stable') {
+
+            when {
+                expression {
+                    return currentBuild.currentResult != 'UNSTABLE'
+                }
+            }
+
             steps {
 
                 echo "Promoting candidate image to stable."
@@ -177,12 +187,12 @@ pipeline {
 
     post {
 
-        success {
-            echo 'Deployment completed successfully.'
+        unstable {
+            echo 'Deployment failed. Review health check and rollback logs.'
         }
 
-        failure {
-            echo 'Deployment failed.'
+        success {
+            echo 'Deployment completed successfully.'
         }
 
         always {
