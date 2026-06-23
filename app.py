@@ -23,7 +23,6 @@ def get_connection():
         database=DB_NAME
     )
 
-
 @app.route("/")
 def home():
     conn = get_connection()
