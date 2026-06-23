@@ -182,6 +182,9 @@ def health():
             "error": str(e)
         }, 500
 
+@app.route("/health")
+def health():
+    return {"status":"broken"}, 500
 
 if __name__ == "__main__":
     app.run(
