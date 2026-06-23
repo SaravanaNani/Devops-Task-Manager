@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <title>DevOps Task Manager</title>
+
+
+<style>
+    body{
+        font-family: Arial, sans-serif;
+        margin:40px;
+        background:#f4f6f9;
+    }
+
+    h1{
+        text-align:center;
+        color:#2c3e50;
+    }
+
+    form{
+        background:white;
+        padding:20px;
+        border-radius:10px;
+        box-shadow:0px 2px 5px rgba(0,0,0,0.1);
+        margin-bottom:20px;
+    }
+
+    input,select{
+        padding:10px;
+        margin-right:10px;
+    }
+
+    button{
+        padding:10px 15px;
+        cursor:pointer;
+    }
+
+    table{
+        width:100%;
+        border-collapse:collapse;
+        background:white;
+    }
+
+    th,td{
+        border:1px solid #ddd;
+        padding:12px;
+        text-align:left;
+    }
+
+    th{
+        background:#34495e;
+        color:white;
+    }
+
+    tr:nth-child(even){
+        background:#f2f2f2;
+    }
+</style>
+
+
+</head>
+
+<body>
+
+<h1>DevOps Task Manager</h1>
+
+<form action="/add" method="POST">
+
+
+<input
+    type="text"
+    name="person_name"
+    placeholder="Person Name"
+    required
+>
+
+<input
+    type="text"
+    name="task_name"
+    placeholder="Task Description"
+    required
+>
+
+<select name="status">
+    <option value="Pending">Pending</option>
+    <option value="Completed">Completed</option>
+</select>
+
+<button type="submit">
+    Add Task
+</button>
+
+
+</form>
+
+<table>
+
+<tr>
+    <th>ID</th>
+    <th>Person Name</th>
+    <th>Task</th>
+    <th>Status</th>
+    <th>Action</th>
+</tr>
+
+{% for task in tasks %}
+
+<tr>
+
+
+<td>{{ task[0] }}</td>
+<td>{{ task[1] }}</td>
+<td>{{ task[2] }}</td>
+<td>{{ task[3] }}</td>
+
+<td>
+    <a href="/edit/{{ task[0] }}">Edit</a>
+    |
+    <a href="/delete/{{ task[0] }}">Delete</a>
+</td>
+
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</body>
+</html>

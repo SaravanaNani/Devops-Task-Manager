@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <title>Edit Task</title>
+</head>
+
+<body>
+
+<h2>Edit Task</h2>
+
+<form method="POST">
+
+
+<input
+    type="text"
+    name="person_name"
+    value="{{ task[1] }}"
+    required
+>
+
+<input
+    type="text"
+    name="task_name"
+    value="{{ task[2] }}"
+    required
+>
+
+<select name="status">
+
+    <option value="Pending"
+    {% if task[3] == 'Pending' %}
+    selected
+    {% endif %}
+    >
+    Pending
+    </option>
+
+    <option value="Completed"
+    {% if task[3] == 'Completed' %}
+    selected
+    {% endif %}
+    >
+    Completed
+    </option>
+
+</select>
+
+<button type="submit">
+    Update Task
+</button>
+
+
+</form>
+
+<br>
+
+<a href="/">Back</a>
+
+</body>
+</html>
