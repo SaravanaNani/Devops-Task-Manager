@@ -5,7 +5,6 @@ pipeline {
     environment {
         APP_NAME = "task-manager-app"
         IMAGE_NAME = "task-manager-app"
-        HEALTH_STATUS = "0"
     }
 
     stages {
@@ -66,7 +65,7 @@ pipeline {
             steps {
                 script {
 
-                    def status = sh(
+                    def healthStatus = sh(
                         script: '''
                         sleep 20
 
@@ -83,71 +82,50 @@ pipeline {
                         returnStatus: true
                     )
 
-                    env.HEALTH_STATUS = status.toString()
+                    if (healthStatus != 0) {
 
-                    if (status != 0) {
-                        currentBuild.result = 'UNSTABLE'
-                    }
-                }
-            }
-        }
-
-        stage('Rollback To Stable Release') {
-            when {
-                expression {
-                    return env.HEALTH_STATUS == "1"
-                }
-            }
-
-            steps {
-                script {
-
-                    echo "Health verification failed."
-
-                    sh '''
-                    docker stop ${APP_NAME} || true
-                    docker rm ${APP_NAME} || true
-                    '''
-
-                    def stableExists = sh(
-                        script: '''
-                        docker image inspect ${IMAGE_NAME}:stable >/dev/null 2>&1
-                        ''',
-                        returnStatus: true
-                    )
-
-                    if (stableExists == 0) {
-
-                        echo "Stable image found. Rolling back..."
+                        echo "Health verification failed."
 
                         sh '''
-                        docker run -d \
-                          --name ${APP_NAME} \
-                          --env-file /opt/task-manager/.env \
-                          -p 5000:5000 \
-                          ${IMAGE_NAME}:stable
+                        docker stop ${APP_NAME} || true
+                        docker rm ${APP_NAME} || true
                         '''
 
-                    } else {
+                        def stableExists = sh(
+                            script: '''
+                            docker image inspect ${IMAGE_NAME}:stable >/dev/null 2>&1
+                            ''',
+                            returnStatus: true
+                        )
 
-                        echo "No stable image found."
-                        echo "This appears to be the first deployment."
-                        echo "Candidate image retained for troubleshooting."
+                        if (stableExists == 0) {
+
+                            echo "Stable image found. Rolling back..."
+
+                            sh '''
+                            docker run -d \
+                              --name ${APP_NAME} \
+                              --env-file /opt/task-manager/.env \
+                              -p 5000:5000 \
+                              ${IMAGE_NAME}:stable
+                            '''
+
+                            error("Rollback completed successfully. Deployment failed.")
+
+                        } else {
+
+                            echo "No stable image found."
+                            echo "This appears to be the first deployment."
+                            echo "Candidate image retained for troubleshooting."
+
+                            error("Deployment failed and rollback is unavailable.")
+                        }
                     }
-
-                    currentBuild.result = 'FAILURE'
-                    error("Deployment failed health verification.")
                 }
             }
         }
 
         stage('Promote Release To Stable') {
-            when {
-                expression {
-                    return env.HEALTH_STATUS == "0"
-                }
-            }
-
             steps {
 
                 echo 'Health verification passed. Promoting release to stable.'
@@ -160,9 +138,6 @@ pipeline {
 
         stage('Cleanup Old Images') {
             steps {
-
-                echo 'Keeping only latest 2 build images plus stable tag.'
-
                 sh '''
                 docker images ${IMAGE_NAME} --format "{{.Tag}}" | \
                 grep -E '^[0-9]+$' | \
@@ -187,10 +162,6 @@ pipeline {
 
         success {
             echo 'Deployment Successful'
-        }
-
-        unstable {
-            echo 'Health Check Failed'
         }
 
         failure {
